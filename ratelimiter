@@ -1,0 +1,42 @@
+const express = require('express');
+const rateLimit = require('express-rate-limit');
+const ipfilter = require('express-ipfilter').IpFilter;
+const helmet = require('helmet');
+
+// Initialize Express app
+const app = express();
+
+// Security Middleware
+app.use(helmet()); // Secure headers with Helmet
+
+// 1. Rate Limiting
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 100, // Limit each IP to 100 requests per windowMs
+  message: 'Too many requests from this IP, please try again after 15 minutes',
+});
+app.use(limiter);
+
+// 2. IP Blocking
+// List of blocked IPs
+const blockedIPs = ['192.168.0.1', '123.455.789.000']; // Add IPs to block here
+app.use(ipfilter(blockedIPs, { mode: 'deny' }));
+
+// Example route
+app.get('/', (req, res) => {
+  res.send('Backend service is up and running with basic security features.');
+});
+
+// 3. Handling errors for blocked IPs
+app.use((err, req, res, next) => {
+  if (err instanceof ipfilter.IpDeniedError) {
+    res.status(403).send('Your IP is blocked.');
+  } else {
+    next(err);
+  }
+});
+
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => {
+  console.log(`Server is running on port ${PORT}`);
+});
